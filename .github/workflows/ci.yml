@@ -1,0 +1,117 @@
+name: Atomic Habit CI/CD Pipeline
+
+on: [push]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Check out code
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.12'
+
+    - name: Install dependencies
+      run: |
+        pip install -r requirements.txt
+
+    - name: Run migrations
+      run: python manage.py migrate
+      env:
+        SECRET_KEY: ${{ secrets.SECRET_KEY }}
+
+    - name: Run tests
+      run: python manage.py test
+      env:
+        SECRET_KEY: ${{ secrets.SECRET_KEY }}
+
+  build:
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v3
+
+      - name: Log in to Docker Hub
+        run: echo ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }} | docker login -u ${{ secrets.DOCKER_HUB_USERNAME }} --password-stdin
+
+      - name: Build and push
+        run: |
+          docker build -t ${{ secrets.DOCKER_HUB_USERNAME }}/atomic-habit:latest .
+          docker build -t ${{ secrets.DOCKER_HUB_USERNAME }}/atomic-habit:${{ github.sha }} .
+          docker push ${{ secrets.DOCKER_HUB_USERNAME }}/atomic-habit:latest
+          docker push ${{ secrets.DOCKER_HUB_USERNAME }}/atomic-habit:${{ github.sha }}
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - name: Copy docker-compose to server
+        uses: appleboy/scp-action@v0.1.4
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          source: "docker-compose.yaml"
+          target: "~/atomic-habit/"
+
+      - name: Create .env file on server
+        uses: appleboy/ssh-action@v0.1.10
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            mkdir -p ~/atomic-habit
+            cd ~/atomic-habit
+            cat > .env << 'EOF'
+            # Django
+            SECRET_KEY=${{ secrets.SECRET_KEY }}
+            DEBUG=False
+            ALLOWED_HOSTS=${{ secrets.ALLOWED_HOSTS }}
+
+            # Database (для Django)
+            DB_NAME=${{ secrets.DB_NAME }}
+            DB_USER=${{ secrets.DB_USER }}
+            DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+            DB_HOST=${{ secrets.DB_HOST }}
+            DB_PORT=${{ secrets.DB_PORT }}
+
+            # Database (для Postgres контейнера)
+            POSTGRES_DB=${{ secrets.POSTGRES_DB }}
+            POSTGRES_USER=${{ secrets.POSTGRES_USER }}
+            POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
+            POSTGRES_HOST=${{ secrets.POSTGRES_HOST }}
+
+            # Email
+            EMAIL=${{ secrets.EMAIL }}
+            WEB_PASSWORD=${{ secrets.WEB_PASSWORD }}
+
+            # Telegram
+            TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }}
+
+            # Redis
+            REDIS_URL=redis://redis:6379/0
+            EOF
+            echo ".env file created successfully"
+
+      - name: Deploy
+        uses: appleboy/ssh-action@v0.1.10
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            cd ~/atomic-habit
+            export DOCKER_HUB_USERNAME=${{ secrets.DOCKER_HUB_USERNAME }}
+            export GITHUB_SHA=${{ github.sha }}
+            docker-compose pull
+            docker-compose up -d
+            docker ps
