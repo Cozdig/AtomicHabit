@@ -61,11 +61,15 @@ jobs:
           script: |
             mkdir -p ~/atomic-habit
             cd ~/atomic-habit
+            
             if [ ! -d .git ]; then
               git clone https://github.com/${{ github.repository }} .
-            else
-              git pull
             fi
+            
+            git fetch origin
+            git checkout ${{ github.ref_name }}
+            git pull origin ${{ github.ref_name }}
+            
             cat > .env << 'ENVEOF'
             SECRET_KEY=${{ secrets.SECRET_KEY }}
             DEBUG=False
@@ -84,6 +88,7 @@ jobs:
             TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }}
             REDIS_URL=redis://redis:6379/0
             ENVEOF
+            
             export DOCKER_HUB_USERNAME=${{ secrets.DOCKER_HUB_USERNAME }}
             export GITHUB_SHA=${{ github.sha }}
             docker-compose pull
