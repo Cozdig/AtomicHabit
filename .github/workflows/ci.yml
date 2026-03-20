@@ -58,7 +58,7 @@ jobs:
           host: ${{ secrets.SERVER_IP }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
-          source: "docker-compose.yml,docker-compose.yaml"
+          source: "docker-compose.yml"
           target: "~/atomic-habit/"
 
       - name: Create .env file on server
