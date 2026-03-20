@@ -52,16 +52,7 @@ jobs:
     needs: build
 
     steps:
-      - name: Copy docker-compose to server
-        uses: appleboy/scp-action@v0.1.4
-        with:
-          host: ${{ secrets.SERVER_IP }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_KEY }}
-          source: "./docker-compose.yml"
-          target: "~/atomic-habit/"
-
-      - name: Create .env file on server
+      - name: Deploy to server
         uses: appleboy/ssh-action@v0.1.10
         with:
           host: ${{ secrets.SERVER_IP }}
@@ -70,45 +61,29 @@ jobs:
           script: |
             mkdir -p ~/atomic-habit
             cd ~/atomic-habit
-            cat > .env << 'EOF'
-            # Django
+            if [ ! -d .git ]; then
+              git clone https://github.com/${{ github.repository }} .
+            else
+              git pull
+            fi
+            cat > .env << 'ENVEOF'
             SECRET_KEY=${{ secrets.SECRET_KEY }}
             DEBUG=False
             ALLOWED_HOSTS=${{ secrets.ALLOWED_HOSTS }}
-
-            # Database (для Django)
             DB_NAME=${{ secrets.DB_NAME }}
             DB_USER=${{ secrets.DB_USER }}
             DB_PASSWORD=${{ secrets.DB_PASSWORD }}
-            DB_HOST=${{ secrets.DB_HOST }}
-            DB_PORT=${{ secrets.DB_PORT }}
-
-            # Database (для Postgres контейнера)
+            DB_HOST=postgres
+            DB_PORT=5432
             POSTGRES_DB=${{ secrets.POSTGRES_DB }}
             POSTGRES_USER=${{ secrets.POSTGRES_USER }}
             POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
-            POSTGRES_HOST=${{ secrets.POSTGRES_HOST }}
-
-            # Email
+            POSTGRES_HOST=postgres
             EMAIL=${{ secrets.EMAIL }}
             WEB_PASSWORD=${{ secrets.WEB_PASSWORD }}
-
-            # Telegram
             TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }}
-
-            # Redis
             REDIS_URL=redis://redis:6379/0
-            EOF
-            echo ".env file created successfully"
-
-      - name: Deploy
-        uses: appleboy/ssh-action@v0.1.10
-        with:
-          host: ${{ secrets.SERVER_IP }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_KEY }}
-          script: |
-            cd ~/atomic-habit
+            ENVEOF
             export DOCKER_HUB_USERNAME=${{ secrets.DOCKER_HUB_USERNAME }}
             export GITHUB_SHA=${{ github.sha }}
             docker-compose pull
