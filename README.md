@@ -1,5 +1,7 @@
 # Atomic Habit
 
+Приложение развернуто и доступно по адресу: **http://178.154.198.7:8000**
+
 ## Запуск проекта через Docker Compose
 
 ### Требования
@@ -97,7 +99,24 @@ docker-compose down -v
 1. Создайте виртуальную машину на сервере(например Yandex Cloud)
 2. Создайте ssh-ключ
 3. Вставьте ssh-ключ в виртуальную машину 
-4. Заполните все Git secrets(DOCKER_HUB_USERNAME, DOCKER_HUB_ACCESS_TOKEN, SSH_KEY, SSH_USER, SERVER_IP, SECRET_KEY(ключ django))
+4. Заполните все Git secrets(
+SECRET_KEY	- Django секретный ключ,
+ALLOWED_HOSTS - Разрешенные хосты (через запятую),
+DB_NAME - Имя базы данных,
+DB_USER - Пользователь БД,
+DB_PASSWORD - Пароль БД,
+POSTGRES_DB - Имя БД для Postgres,
+POSTGRES_USER - Пользователь Postgres,
+POSTGRES_PASSWORD - Пароль Postgres,
+EMAIL - Email для уведомлений,
+WEB_PASSWORD - Пароль от email,
+TELEGRAM_BOT_TOKEN - Токен Telegram бота,
+DOCKER_HUB_USERNAME - Имя пользователя Docker Hub,
+DOCKER_HUB_ACCESS_TOKEN - Токен доступа Docker Hub,
+SERVER_IP - IP адрес сервера,
+SSH_USER - Пользователь SSH,
+SSH_KEY)
+
 
 ### Подключитесь к серверу через команду (в командной строке)
 ```bash
@@ -109,12 +128,43 @@ ssh -l (SSH_USER) (SERVER_IP)
 sudo apt update && sudo apt upgrade -y
 ```
 
-### Установите докер (в командной строке)
+## Установите Docker и Docker Compose:
 ```bash
 curl -fsSL https://get.docker.com -o get-docker.sh
 sudo sh get-docker.sh
 sudo usermod -aG docker $USER
-newgrp docker
+```
+
+### Выход и повторный вход
+```bash
+exit
+ssh user@your-server-ip
+```
+### Проверка установки
+```bash
+docker --version
+docker compose version
+```
+## Создайте .env файл:
+```bash
+cat > .env << 'EOF'
+SECRET_KEY=your-secret-key
+DEBUG=False
+ALLOWED_HOSTS=your-server-ip,localhost,127.0.0.1
+DB_NAME=postgres
+DB_USER=postgres
+DB_PASSWORD=your-db-password
+DB_HOST=postgres
+DB_PORT=5432
+POSTGRES_DB=postgres
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=your-db-password
+POSTGRES_HOST=postgres
+EMAIL=your-email@example.com
+WEB_PASSWORD=your-email-password
+TELEGRAM_BOT_TOKEN=your-telegram-bot-token
+REDIS_URL=redis://redis:6379/0
+EOF
 ```
 
 ## Запуск workflow
@@ -141,5 +191,5 @@ docker logs myapp
 
 ### Проверьте доступность сайта (в командной строке)
 ```bash
-curl http://localhost:80
+curl http://localhost:8000
 ```
